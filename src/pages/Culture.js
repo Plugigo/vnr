@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '../firebase';
-import { collection, addDoc, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, addDoc, query, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../firebase';
 
@@ -22,6 +22,13 @@ export default function Culture() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [editType, setEditType] = useState(TYPES[0].key);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [editMedia, setEditMedia] = useState('');
+  const [editError, setEditError] = useState('');
+  const [editSuccess, setEditSuccess] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -69,6 +76,38 @@ export default function Culture() {
     }
   };
 
+  const startEdit = (item) => {
+    setEditId(item.id);
+    setEditType(item.type);
+    setEditTitle(item.title);
+    setEditDesc(item.desc);
+    setEditMedia(item.media || '');
+    setEditError('');
+    setEditSuccess('');
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setEditError('');
+    setEditSuccess('');
+    if (!editTitle || !editDesc) {
+      setEditError('Title and description are required.');
+      return;
+    }
+    try {
+      await updateDoc(doc(db, 'culture', editId), {
+        type: editType,
+        title: editTitle,
+        desc: editDesc,
+        media: editMedia
+      });
+      setEditSuccess('Item updated!');
+      setTimeout(() => setEditId(null), 1000);
+    } catch (err) {
+      setEditError('Failed to update item.');
+    }
+  };
+
   return (
     <div style={{padding:'2rem'}}>
       <h2>Culture & Oral History</h2>
@@ -111,10 +150,47 @@ export default function Culture() {
               {items.filter(i => i.type === t.key).length === 0 && <p>No items yet.</p>}
               {items.filter(i => i.type === t.key).map(item => (
                 <div key={item.id} style={{background:'#fff',marginBottom:'1rem',padding:'1rem',borderRadius:'8px',boxShadow:'0 1px 4px rgba(0,0,0,0.05)'}}>
-                  <h4 style={{margin:'0 0 0.5rem 0'}}>{item.title}</h4>
-                  <div style={{color:'#444',marginBottom:'0.5rem'}}>{item.desc}</div>
-                  {item.media && <div><a href={item.media} target="_blank" rel="noopener noreferrer">Media Link</a></div>}
-                  <div style={{fontSize:'0.9rem',color:'#888'}}>Added by {item.addedBy} on {item.createdAt && item.createdAt.toDate && new Date(item.createdAt.seconds*1000).toLocaleString()}</div>
+                  {isAdmin && editId === item.id ? (
+                    <form onSubmit={handleEditSubmit} style={{marginBottom:'1rem'}}>
+                      <select value={editType} onChange={e => setEditType(e.target.value)} style={{width:'100%',padding:'0.5rem',marginBottom:'0.5rem'}}>
+                        {TYPES.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
+                      </select>
+                      <input
+                        type="text"
+                        placeholder="Title"
+                        value={editTitle}
+                        onChange={e => setEditTitle(e.target.value)}
+                        style={{width:'100%',padding:'0.5rem',marginBottom:'0.5rem',border:'1px solid #ccc',borderRadius:'4px'}}
+                      />
+                      <textarea
+                        placeholder="Description"
+                        value={editDesc}
+                        onChange={e => setEditDesc(e.target.value)}
+                        style={{width:'100%',padding:'0.5rem',marginBottom:'0.5rem',border:'1px solid #ccc',borderRadius:'4px',minHeight:60}}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Media Link (optional)"
+                        value={editMedia}
+                        onChange={e => setEditMedia(e.target.value)}
+                        style={{width:'100%',padding:'0.5rem',marginBottom:'0.5rem',border:'1px solid #ccc',borderRadius:'4px'}}
+                      />
+                      {editError && <div style={{color:'red',marginBottom:'0.5rem'}}>{editError}</div>}
+                      {editSuccess && <div style={{color:'green',marginBottom:'0.5rem'}}>{editSuccess}</div>}
+                      <button type="submit" style={{background:'#039be5',color:'#fff',border:'none',borderRadius:'4px',padding:'0.5rem 1rem',marginRight:'0.5rem'}}>Save</button>
+                      <button type="button" onClick={() => setEditId(null)} style={{background:'#eee',color:'#333',border:'none',borderRadius:'4px',padding:'0.5rem 1rem'}}>Cancel</button>
+                    </form>
+                  ) : (
+                    <>
+                      <h4 style={{margin:'0 0 0.5rem 0'}}>{item.title}</h4>
+                      <div style={{color:'#444',marginBottom:'0.5rem'}}>{item.desc}</div>
+                      {item.media && <div><a href={item.media} target="_blank" rel="noopener noreferrer">Media Link</a></div>}
+                      <div style={{fontSize:'0.9rem',color:'#888'}}>Added by {item.addedBy} on {item.createdAt && item.createdAt.toDate && new Date(item.createdAt.seconds*1000).toLocaleString()}</div>
+                      {isAdmin && (
+                        <button onClick={() => startEdit(item)} style={{marginTop:'0.5rem',background:'#039be5',color:'#fff',border:'none',borderRadius:'4px',padding:'0.3rem 1rem'}}>Edit</button>
+                      )}
+                    </>
+                  )}
                 </div>
               ))}
             </div>

@@ -22,6 +22,12 @@ export default function Gallery() {
   const [success, setSuccess] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [filter, setFilter] = useState(CATEGORIES[0].key);
+  const [editId, setEditId] = useState(null);
+  const [editUrl, setEditUrl] = useState('');
+  const [editCaption, setEditCaption] = useState('');
+  const [editCategory, setEditCategory] = useState(CATEGORIES[0].key);
+  const [editError, setEditError] = useState('');
+  const [editSuccess, setEditSuccess] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -76,6 +82,36 @@ export default function Gallery() {
     await updateDoc(doc(db, 'gallery', id), { approved: true });
   };
 
+  const startEdit = (item) => {
+    setEditId(item.id);
+    setEditUrl(item.url);
+    setEditCaption(item.caption);
+    setEditCategory(item.category);
+    setEditError('');
+    setEditSuccess('');
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setEditError('');
+    setEditSuccess('');
+    if (!editUrl || !editCaption) {
+      setEditError('Image URL and caption are required.');
+      return;
+    }
+    try {
+      await updateDoc(doc(db, 'gallery', editId), {
+        url: editUrl,
+        caption: editCaption,
+        category: editCategory
+      });
+      setEditSuccess('Image updated!');
+      setTimeout(() => setEditId(null), 1000);
+    } catch (err) {
+      setEditError('Failed to update image.');
+    }
+  };
+
   return (
     <div style={{padding:'2rem'}}>
       <h2>Gallery & Memories</h2>
@@ -119,14 +155,45 @@ export default function Gallery() {
           {images.length === 0 && <p>No images in this category yet.</p>}
           {images.filter(img => img.approved || isAdmin).map(item => (
             <div key={item.id} style={{background:'#fff',padding:'1rem',borderRadius:'8px',boxShadow:'0 1px 4px rgba(0,0,0,0.05)',width:300}}>
-              <img src={item.url} alt={item.caption} style={{width:'100%',maxHeight:180,objectFit:'cover',borderRadius:'6px',marginBottom:'0.5rem'}} />
-              <div style={{fontWeight:'bold',marginBottom:'0.3rem'}}>{item.caption}</div>
-              <div style={{fontSize:'0.9rem',color:'#888'}}>By {item.uploader} on {item.createdAt && item.createdAt.toDate && new Date(item.createdAt.seconds*1000).toLocaleString()}</div>
-              <div style={{fontSize:'0.9rem',color:item.approved?'green':'orange'}}>
-                {item.approved ? 'Approved' : 'Pending approval'}
-              </div>
-              {isAdmin && !item.approved && (
-                <button onClick={() => handleApprove(item.id)} style={{marginTop:'0.5rem',background:'#039be5',color:'#fff',border:'none',borderRadius:'4px',padding:'0.3rem 1rem'}}>Approve</button>
+              {isAdmin && editId === item.id ? (
+                <form onSubmit={handleEditSubmit} style={{marginBottom:'1rem'}}>
+                  <select value={editCategory} onChange={e => setEditCategory(e.target.value)} style={{width:'100%',padding:'0.5rem',marginBottom:'0.5rem'}}>
+                    {CATEGORIES.map(cat => <option key={cat.key} value={cat.key}>{cat.label}</option>)}
+                  </select>
+                  <input
+                    type="text"
+                    placeholder="Image URL"
+                    value={editUrl}
+                    onChange={e => setEditUrl(e.target.value)}
+                    style={{width:'100%',padding:'0.5rem',marginBottom:'0.5rem',border:'1px solid #ccc',borderRadius:'4px'}}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Caption"
+                    value={editCaption}
+                    onChange={e => setEditCaption(e.target.value)}
+                    style={{width:'100%',padding:'0.5rem',marginBottom:'0.5rem',border:'1px solid #ccc',borderRadius:'4px'}}
+                  />
+                  {editError && <div style={{color:'red',marginBottom:'0.5rem'}}>{editError}</div>}
+                  {editSuccess && <div style={{color:'green',marginBottom:'0.5rem'}}>{editSuccess}</div>}
+                  <button type="submit" style={{background:'#039be5',color:'#fff',border:'none',borderRadius:'4px',padding:'0.5rem 1rem',marginRight:'0.5rem'}}>Save</button>
+                  <button type="button" onClick={() => setEditId(null)} style={{background:'#eee',color:'#333',border:'none',borderRadius:'4px',padding:'0.5rem 1rem'}}>Cancel</button>
+                </form>
+              ) : (
+                <>
+                  <img src={item.url} alt={item.caption} style={{width:'100%',maxHeight:180,objectFit:'cover',borderRadius:'6px',marginBottom:'0.5rem'}} />
+                  <div style={{fontWeight:'bold',marginBottom:'0.3rem'}}>{item.caption}</div>
+                  <div style={{fontSize:'0.9rem',color:'#888'}}>By {item.uploader} on {item.createdAt && item.createdAt.toDate && new Date(item.createdAt.seconds*1000).toLocaleString()}</div>
+                  <div style={{fontSize:'0.9rem',color:item.approved?'green':'orange'}}>
+                    {item.approved ? 'Approved' : 'Pending approval'}
+                  </div>
+                  {isAdmin && !item.approved && (
+                    <button onClick={() => handleApprove(item.id)} style={{marginTop:'0.5rem',background:'#039be5',color:'#fff',border:'none',borderRadius:'4px',padding:'0.3rem 1rem'}}>Approve</button>
+                  )}
+                  {isAdmin && (
+                    <button onClick={() => startEdit(item)} style={{marginTop:'0.5rem',marginLeft:'0.5rem',background:'#039be5',color:'#fff',border:'none',borderRadius:'4px',padding:'0.3rem 1rem'}}>Edit</button>
+                  )}
+                </>
               )}
             </div>
           ))}

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '../firebase';
-import { collection, addDoc, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, addDoc, query, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../firebase';
 
@@ -15,6 +15,13 @@ export default function Events() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [editImage, setEditImage] = useState('');
+  const [editError, setEditError] = useState('');
+  const [editSuccess, setEditSuccess] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -62,6 +69,38 @@ export default function Events() {
     }
   };
 
+  const startEdit = (item) => {
+    setEditId(item.id);
+    setEditTitle(item.title);
+    setEditDate(item.date);
+    setEditDesc(item.desc);
+    setEditImage(item.image || '');
+    setEditError('');
+    setEditSuccess('');
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setEditError('');
+    setEditSuccess('');
+    if (!editTitle || !editDate || !editDesc) {
+      setEditError('Title, date, and description are required.');
+      return;
+    }
+    try {
+      await updateDoc(doc(db, 'events', editId), {
+        title: editTitle,
+        date: editDate,
+        desc: editDesc,
+        image: editImage
+      });
+      setEditSuccess('Event updated!');
+      setTimeout(() => setEditId(null), 1000);
+    } catch (err) {
+      setEditError('Failed to update event.');
+    }
+  };
+
   return (
     <div style={{padding:'2rem'}}>
       <h2>Events & Festivals</h2>
@@ -104,11 +143,51 @@ export default function Events() {
           {events.length === 0 && <p>No upcoming events yet.</p>}
           {events.map(item => (
             <div key={item.id} style={{background:'#fff',marginBottom:'1rem',padding:'1rem',borderRadius:'8px',boxShadow:'0 1px 4px rgba(0,0,0,0.05)'}}>
-              <h4 style={{margin:'0 0 0.5rem 0'}}>{item.title}</h4>
-              <div style={{color:'#444',marginBottom:'0.5rem'}}><b>Date:</b> {item.date}</div>
-              <div style={{color:'#444',marginBottom:'0.5rem'}}>{item.desc}</div>
-              {item.image && <img src={item.image} alt="event" style={{maxWidth:'100%',maxHeight:200,margin:'0.5rem 0',borderRadius:'8px'}} />}
-              <div style={{fontSize:'0.9rem',color:'#888'}}>Added by {item.addedBy} on {item.createdAt && item.createdAt.toDate && new Date(item.createdAt.seconds*1000).toLocaleString()}</div>
+              {isAdmin && editId === item.id ? (
+                <form onSubmit={handleEditSubmit} style={{marginBottom:'1rem'}}>
+                  <input
+                    type="text"
+                    placeholder="Event Title"
+                    value={editTitle}
+                    onChange={e => setEditTitle(e.target.value)}
+                    style={{width:'100%',padding:'0.5rem',marginBottom:'0.5rem',border:'1px solid #ccc',borderRadius:'4px'}}
+                  />
+                  <input
+                    type="date"
+                    value={editDate}
+                    onChange={e => setEditDate(e.target.value)}
+                    style={{width:'100%',padding:'0.5rem',marginBottom:'0.5rem',border:'1px solid #ccc',borderRadius:'4px'}}
+                  />
+                  <textarea
+                    placeholder="Description"
+                    value={editDesc}
+                    onChange={e => setEditDesc(e.target.value)}
+                    style={{width:'100%',padding:'0.5rem',marginBottom:'0.5rem',border:'1px solid #ccc',borderRadius:'4px',minHeight:80}}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Image URL (optional)"
+                    value={editImage}
+                    onChange={e => setEditImage(e.target.value)}
+                    style={{width:'100%',padding:'0.5rem',marginBottom:'0.5rem',border:'1px solid #ccc',borderRadius:'4px'}}
+                  />
+                  {editError && <div style={{color:'red',marginBottom:'0.5rem'}}>{editError}</div>}
+                  {editSuccess && <div style={{color:'green',marginBottom:'0.5rem'}}>{editSuccess}</div>}
+                  <button type="submit" style={{background:'#039be5',color:'#fff',border:'none',borderRadius:'4px',padding:'0.5rem 1rem',marginRight:'0.5rem'}}>Save</button>
+                  <button type="button" onClick={() => setEditId(null)} style={{background:'#eee',color:'#333',border:'none',borderRadius:'4px',padding:'0.5rem 1rem'}}>Cancel</button>
+                </form>
+              ) : (
+                <>
+                  <h4 style={{margin:'0 0 0.5rem 0'}}>{item.title}</h4>
+                  <div style={{color:'#444',marginBottom:'0.5rem'}}><b>Date:</b> {item.date}</div>
+                  <div style={{color:'#444',marginBottom:'0.5rem'}}>{item.desc}</div>
+                  {item.image && <img src={item.image} alt="event" style={{maxWidth:'100%',maxHeight:200,margin:'0.5rem 0',borderRadius:'8px'}} />}
+                  <div style={{fontSize:'0.9rem',color:'#888'}}>Added by {item.addedBy} on {item.createdAt && item.createdAt.toDate && new Date(item.createdAt.seconds*1000).toLocaleString()}</div>
+                  {isAdmin && (
+                    <button onClick={() => startEdit(item)} style={{marginTop:'0.5rem',background:'#039be5',color:'#fff',border:'none',borderRadius:'4px',padding:'0.3rem 1rem'}}>Edit</button>
+                  )}
+                </>
+              )}
             </div>
           ))}
         </div>

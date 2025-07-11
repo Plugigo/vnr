@@ -1,14 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '../firebase';
-import { collection, addDoc, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, addDoc, query, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../firebase';
 
 const TYPES = [
-  { key: 'clinic', label: 'Clinics & Doctors' },
   { key: 'camp', label: 'Health Camps' },
-  { key: 'awareness', label: 'Awareness' },
-  { key: 'donation', label: 'Blood/Organ Donation' }
+  { key: 'info', label: 'Health Info' },
+  { key: 'vaccine', label: 'Vaccination' }
 ];
 
 export default function Health() {
@@ -17,11 +16,20 @@ export default function Health() {
   const [type, setType] = useState(TYPES[0].key);
   const [title, setTitle] = useState('');
   const [desc, setDesc] = useState('');
+  const [date, setDate] = useState('');
   const [link, setLink] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [editType, setEditType] = useState(TYPES[0].key);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [editLink, setEditLink] = useState('');
+  const [editError, setEditError] = useState('');
+  const [editSuccess, setEditSuccess] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -55,12 +63,14 @@ export default function Health() {
         type,
         title,
         desc,
+        date,
         link,
         createdAt: new Date(),
         addedBy: user.email
       });
       setTitle('');
       setDesc('');
+      setDate('');
       setLink('');
       setType(TYPES[0].key);
       setSuccess('Item added!');
@@ -69,12 +79,46 @@ export default function Health() {
     }
   };
 
+  const startEdit = (item) => {
+    setEditId(item.id);
+    setEditType(item.type);
+    setEditTitle(item.title);
+    setEditDesc(item.desc);
+    setEditDate(item.date || '');
+    setEditLink(item.link || '');
+    setEditError('');
+    setEditSuccess('');
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setEditError('');
+    setEditSuccess('');
+    if (!editTitle || !editDesc) {
+      setEditError('Title and description are required.');
+      return;
+    }
+    try {
+      await updateDoc(doc(db, 'health', editId), {
+        type: editType,
+        title: editTitle,
+        desc: editDesc,
+        date: editDate,
+        link: editLink
+      });
+      setEditSuccess('Item updated!');
+      setTimeout(() => setEditId(null), 1000);
+    } catch (err) {
+      setEditError('Failed to update item.');
+    }
+  };
+
   return (
     <div style={{padding:'2rem'}}>
-      <h2>Health & Welfare</h2>
+      <h2>Health & Wellness</h2>
       {isAdmin && (
         <form onSubmit={handleSubmit} style={{marginBottom:'2rem',background:'#f5f5f5',padding:'1rem',borderRadius:'8px',maxWidth:500}}>
-          <h3>Add Clinic/Camp/Awareness/Donation</h3>
+          <h3>Add Health Info/Camp/Vaccine</h3>
           <select value={type} onChange={e => setType(e.target.value)} style={{width:'100%',padding:'0.5rem',marginBottom:'0.5rem'}}>
             {TYPES.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
           </select>
@@ -90,6 +134,13 @@ export default function Health() {
             value={desc}
             onChange={e => setDesc(e.target.value)}
             style={{width:'100%',padding:'0.5rem',marginBottom:'0.5rem',border:'1px solid #ccc',borderRadius:'4px',minHeight:60}}
+          />
+          <input
+            type="date"
+            placeholder="Date (optional)"
+            value={date}
+            onChange={e => setDate(e.target.value)}
+            style={{width:'100%',padding:'0.5rem',marginBottom:'0.5rem',border:'1px solid #ccc',borderRadius:'4px'}}
           />
           <input
             type="text"
@@ -111,10 +162,55 @@ export default function Health() {
               {items.filter(i => i.type === t.key).length === 0 && <p>No items yet.</p>}
               {items.filter(i => i.type === t.key).map(item => (
                 <div key={item.id} style={{background:'#fff',marginBottom:'1rem',padding:'1rem',borderRadius:'8px',boxShadow:'0 1px 4px rgba(0,0,0,0.05)'}}>
-                  <h4 style={{margin:'0 0 0.5rem 0'}}>{item.title}</h4>
-                  <div style={{color:'#444',marginBottom:'0.5rem'}}>{item.desc}</div>
-                  {item.link && <div><a href={item.link} target="_blank" rel="noopener noreferrer">More Info</a></div>}
-                  <div style={{fontSize:'0.9rem',color:'#888'}}>Added by {item.addedBy} on {item.createdAt && item.createdAt.toDate && new Date(item.createdAt.seconds*1000).toLocaleString()}</div>
+                  {isAdmin && editId === item.id ? (
+                    <form onSubmit={handleEditSubmit} style={{marginBottom:'1rem'}}>
+                      <select value={editType} onChange={e => setEditType(e.target.value)} style={{width:'100%',padding:'0.5rem',marginBottom:'0.5rem'}}>
+                        {TYPES.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
+                      </select>
+                      <input
+                        type="text"
+                        placeholder="Title"
+                        value={editTitle}
+                        onChange={e => setEditTitle(e.target.value)}
+                        style={{width:'100%',padding:'0.5rem',marginBottom:'0.5rem',border:'1px solid #ccc',borderRadius:'4px'}}
+                      />
+                      <textarea
+                        placeholder="Description"
+                        value={editDesc}
+                        onChange={e => setEditDesc(e.target.value)}
+                        style={{width:'100%',padding:'0.5rem',marginBottom:'0.5rem',border:'1px solid #ccc',borderRadius:'4px',minHeight:60}}
+                      />
+                      <input
+                        type="date"
+                        placeholder="Date (optional)"
+                        value={editDate}
+                        onChange={e => setEditDate(e.target.value)}
+                        style={{width:'100%',padding:'0.5rem',marginBottom:'0.5rem',border:'1px solid #ccc',borderRadius:'4px'}}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Link (optional)"
+                        value={editLink}
+                        onChange={e => setEditLink(e.target.value)}
+                        style={{width:'100%',padding:'0.5rem',marginBottom:'0.5rem',border:'1px solid #ccc',borderRadius:'4px'}}
+                      />
+                      {editError && <div style={{color:'red',marginBottom:'0.5rem'}}>{editError}</div>}
+                      {editSuccess && <div style={{color:'green',marginBottom:'0.5rem'}}>{editSuccess}</div>}
+                      <button type="submit" style={{background:'#039be5',color:'#fff',border:'none',borderRadius:'4px',padding:'0.5rem 1rem',marginRight:'0.5rem'}}>Save</button>
+                      <button type="button" onClick={() => setEditId(null)} style={{background:'#eee',color:'#333',border:'none',borderRadius:'4px',padding:'0.5rem 1rem'}}>Cancel</button>
+                    </form>
+                  ) : (
+                    <>
+                      <h4 style={{margin:'0 0 0.5rem 0'}}>{item.title}</h4>
+                      <div style={{color:'#444',marginBottom:'0.5rem'}}>{item.desc}</div>
+                      {item.date && <div style={{color:'#444',marginBottom:'0.5rem'}}><b>Date:</b> {item.date}</div>}
+                      {item.link && <div><a href={item.link} target="_blank" rel="noopener noreferrer">More Info</a></div>}
+                      <div style={{fontSize:'0.9rem',color:'#888'}}>Added by {item.addedBy} on {item.createdAt && item.createdAt.toDate && new Date(item.createdAt.seconds*1000).toLocaleString()}</div>
+                      {isAdmin && (
+                        <button onClick={() => startEdit(item)} style={{marginTop:'0.5rem',background:'#039be5',color:'#fff',border:'none',borderRadius:'4px',padding:'0.3rem 1rem'}}>Edit</button>
+                      )}
+                    </>
+                  )}
                 </div>
               ))}
             </div>
