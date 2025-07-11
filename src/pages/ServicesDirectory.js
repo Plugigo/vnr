@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { db } from '../firebase';
-import { collection, addDoc, query, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { db, collection, addDoc, query, orderBy, onSnapshot, doc, updateDoc, getDoc } from '../firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../firebase';
 
@@ -39,8 +38,8 @@ export default function ServicesDirectory() {
 
   useEffect(() => {
     if (!user) return;
-    db.collection('users').doc(user.uid).get().then(docSnap => {
-      if (docSnap.exists) {
+    getDoc(doc(db, 'users', user.uid)).then(docSnap => {
+      if (docSnap.exists()) {
         setIsAdmin(docSnap.data().role === 'admin');
       }
     });

@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { db } from '../firebase';
-import { collection, addDoc, query, orderBy, onSnapshot, updateDoc, doc, where } from 'firebase/firestore';
+import { db, collection, addDoc, query, orderBy, onSnapshot, updateDoc, doc, where, getDoc } from '../firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../firebase';
 
@@ -30,8 +29,8 @@ export default function BulletinBoard() {
 
   useEffect(() => {
     if (!user) return;
-    db.collection('users').doc(user.uid).get().then(docSnap => {
-      if (docSnap.exists) {
+    getDoc(doc(db, 'users', user.uid)).then(docSnap => {
+      if (docSnap.exists()) {
         setIsAdmin(docSnap.data().role === 'admin');
       }
     });
@@ -45,11 +44,14 @@ export default function BulletinBoard() {
       orderBy('createdAt', 'desc')
     );
     const unsub = onSnapshot(q, (snapshot) => {
-      setPosts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const allPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // Show all posts to admins, but only approved posts to regular users
+      const filteredPosts = isAdmin ? allPosts : allPosts.filter(post => post.approved);
+      setPosts(filteredPosts);
       setLoading(false);
     });
     return () => unsub();
-  }, [filter]);
+  }, [filter, isAdmin]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -60,7 +62,7 @@ export default function BulletinBoard() {
       return;
     }
     try {
-      await addDoc(collection(db, 'bulletin'), {
+      const docRef = await addDoc(collection(db, 'bulletin'), {
         title,
         content,
         category,
@@ -71,9 +73,12 @@ export default function BulletinBoard() {
       setTitle('');
       setContent('');
       setCategory(CATEGORIES[0].key);
-      setSuccess('Post submitted for approval!');
+      setSuccess('Post submitted for approval! You can see it in the list below.');
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
-      setError('Failed to submit post.');
+      console.error('Error submitting post:', err);
+      setError('Failed to submit post: ' + err.message);
     }
   };
 
@@ -116,6 +121,7 @@ export default function BulletinBoard() {
       <h2>Community Bulletin Board</h2>
       <form onSubmit={handleSubmit} style={{marginBottom:'2rem',background:'#f5f5f5',padding:'1rem',borderRadius:'8px',maxWidth:500}}>
         <h3>Post to Bulletin Board</h3>
+        {!isAdmin && <p style={{fontSize:'0.9rem',color:'#666',marginBottom:'1rem'}}>Note: Your posts will be visible after admin approval.</p>}
         <select value={category} onChange={e => setCategory(e.target.value)} style={{width:'100%',padding:'0.5rem',marginBottom:'0.5rem'}}>
           {CATEGORIES.map(cat => <option key={cat.key} value={cat.key}>{cat.label}</option>)}
         </select>

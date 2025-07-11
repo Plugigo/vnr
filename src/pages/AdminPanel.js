@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { db } from '../firebase';
+import { db, collection, getDocs, getDoc, doc } from '../firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../firebase';
 
@@ -25,8 +25,8 @@ export default function AdminPanel() {
 
   useEffect(() => {
     if (!user) return;
-    db.collection('users').doc(user.uid).get().then(docSnap => {
-      if (docSnap.exists) {
+    getDoc(doc(db, 'users', user.uid)).then(docSnap => {
+      if (docSnap.exists()) {
         setIsAdmin(docSnap.data().role === 'admin');
       }
     });
@@ -37,7 +37,7 @@ export default function AdminPanel() {
       setLoading(true);
       const newCounts = {};
       for (const col of COLLECTIONS) {
-        const snap = await db.collection(col.key).get();
+        const snap = await getDocs(collection(db, col.key));
         newCounts[col.key] = snap.size;
       }
       setCounts(newCounts);

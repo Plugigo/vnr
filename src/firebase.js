@@ -1,7 +1,7 @@
 // src/firebase.js
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, query, orderBy, onSnapshot, where } from "firebase/firestore";
 
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
@@ -18,3 +18,14 @@ const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// Test Firebase connectivity (only in development)
+if (process.env.NODE_ENV === 'development') {
+  console.log('Testing Firebase connection...');
+  getDocs(collection(db, 'users'))
+    .then(() => console.log('✅ Firebase connection successful'))
+    .catch(err => console.error('❌ Firebase connection failed:', err.message));
+}
+
+// Export all Firestore functions for use in components
+export { collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, query, orderBy, onSnapshot, where };

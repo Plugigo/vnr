@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import './App.css';
+import './common.css';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate } from "react-router-dom";
 import { auth, db } from "./firebase";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
-import { collection, addDoc, doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 // Import placeholder pages
 import News from "./pages/News";
 import BulletinBoard from "./pages/BulletinBoard";
@@ -17,6 +18,7 @@ import Gallery from "./pages/Gallery";
 import Health from "./pages/Health";
 import Participation from "./pages/Participation";
 import AdminPanel from "./pages/AdminPanel";
+import ErrorBoundary from "./ErrorBoundary";
 
 function SplashScreen() {
   return (
@@ -134,7 +136,7 @@ function SignupPage({ onSwitch, onSignup }) {
 
 function Sidebar({ user, isAdmin, onLogout }) {
   return (
-    <div className="sidebar" style={{width:220,background:'#282c34',color:'#fff',height:'100vh',position:'fixed',top:0,left:0,display:'flex',flexDirection:'column',padding:'1rem 0'}}>
+    <div className="sidebar" style={{width:220,background:'#282c34',color:'#fff',height:'100vh',position:'fixed',top:0,left:0,display:'flex',flexDirection:'column',padding:'1rem 0',overflowY:'auto'}}>
       <h2 style={{textAlign:'center',marginBottom:'2rem',fontSize:'1.3rem'}}>VNR-360</h2>
       <nav style={{display:'flex',flexDirection:'column',gap:'1rem',flex:1}}>
         <Link to="/news" style={{color:'#fff',textDecoration:'none',padding:'0.5rem 1.5rem'}}>News</Link>
@@ -214,27 +216,29 @@ function App() {
   }
 
   return (
-    <Router>
-      <Sidebar user={user} isAdmin={isAdmin} onLogout={handleLogout} />
-      <div style={{marginLeft:220}}>
-        <Routes>
-          <Route path="/" element={<Dashboard user={user} isAdmin={isAdmin} onLogout={handleLogout} />} />
-          <Route path="/news" element={<News />} />
-          <Route path="/bulletin" element={<BulletinBoard />} />
-          <Route path="/services" element={<ServicesDirectory />} />
-          <Route path="/events" element={<Events />} />
-          <Route path="/education" element={<Education />} />
-          <Route path="/agriculture" element={<Agriculture />} />
-          <Route path="/jobs" element={<Jobs />} />
-          <Route path="/culture" element={<Culture />} />
-          <Route path="/gallery" element={<Gallery />} />
-          <Route path="/health" element={<Health />} />
-          <Route path="/participation" element={<Participation />} />
-          {isAdmin && <Route path="/admin" element={<AdminPanel />} />}
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
-      </div>
-    </Router>
+    <ErrorBoundary>
+      <Router>
+        <Sidebar user={user} isAdmin={isAdmin} onLogout={handleLogout} />
+        <div style={{marginLeft:220}}>
+          <Routes>
+            <Route path="/" element={<Dashboard user={user} isAdmin={isAdmin} onLogout={handleLogout} />} />
+            <Route path="/news" element={<News />} />
+            <Route path="/bulletin" element={<BulletinBoard />} />
+            <Route path="/services" element={<ServicesDirectory />} />
+            <Route path="/events" element={<Events />} />
+            <Route path="/education" element={<Education />} />
+            <Route path="/agriculture" element={<Agriculture />} />
+            <Route path="/jobs" element={<Jobs />} />
+            <Route path="/culture" element={<Culture />} />
+            <Route path="/gallery" element={<Gallery />} />
+            <Route path="/health" element={<Health />} />
+            <Route path="/participation" element={<Participation />} />
+            {isAdmin && <Route path="/admin" element={<AdminPanel />} />}
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
+        </div>
+      </Router>
+    </ErrorBoundary>
   );
 }
 
