@@ -21,6 +21,12 @@ export default function BulletinBoard() {
   const [success, setSuccess] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [filter, setFilter] = useState(CATEGORIES[0].key);
+  const [editId, setEditId] = useState(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editContent, setEditContent] = useState('');
+  const [editCategory, setEditCategory] = useState(CATEGORIES[0].key);
+  const [editError, setEditError] = useState('');
+  const [editSuccess, setEditSuccess] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -75,6 +81,36 @@ export default function BulletinBoard() {
     await updateDoc(doc(db, 'bulletin', id), { approved: true });
   };
 
+  const startEdit = (item) => {
+    setEditId(item.id);
+    setEditTitle(item.title);
+    setEditContent(item.content);
+    setEditCategory(item.category);
+    setEditError('');
+    setEditSuccess('');
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setEditError('');
+    setEditSuccess('');
+    if (!editTitle || !editContent) {
+      setEditError('Title and content are required.');
+      return;
+    }
+    try {
+      await updateDoc(doc(db, 'bulletin', editId), {
+        title: editTitle,
+        content: editContent,
+        category: editCategory
+      });
+      setEditSuccess('Post updated!');
+      setTimeout(() => setEditId(null), 1000);
+    } catch (err) {
+      setEditError('Failed to update post.');
+    }
+  };
+
   return (
     <div style={{padding:'2rem'}}>
       <h2>Community Bulletin Board</h2>
@@ -117,14 +153,42 @@ export default function BulletinBoard() {
           {posts.length === 0 && <p>No posts in this category yet.</p>}
           {posts.map(item => (
             <div key={item.id} style={{background:'#fff',marginBottom:'1rem',padding:'1rem',borderRadius:'8px',boxShadow:'0 1px 4px rgba(0,0,0,0.05)'}}>
-              <h4 style={{margin:'0 0 0.5rem 0'}}>{item.title}</h4>
-              <div style={{color:'#444',marginBottom:'0.5rem'}}>{item.content}</div>
-              <div style={{fontSize:'0.9rem',color:'#888'}}>By {item.author} on {item.createdAt && item.createdAt.toDate && new Date(item.createdAt.seconds*1000).toLocaleString()}</div>
-              <div style={{fontSize:'0.9rem',color:item.approved?'green':'orange'}}>
-                {item.approved ? 'Approved' : 'Pending approval'}
-              </div>
-              {isAdmin && !item.approved && (
-                <button onClick={() => handleApprove(item.id)} style={{marginTop:'0.5rem',background:'#039be5',color:'#fff',border:'none',borderRadius:'4px',padding:'0.3rem 1rem'}}>Approve</button>
+              {isAdmin && editId === item.id ? (
+                <form onSubmit={handleEditSubmit} style={{marginBottom:'1rem'}}>
+                  <select value={editCategory} onChange={e => setEditCategory(e.target.value)} style={{width:'100%',padding:'0.5rem',marginBottom:'0.5rem'}}>
+                    {CATEGORIES.map(cat => <option key={cat.key} value={cat.key}>{cat.label}</option>)}
+                  </select>
+                  <input
+                    type="text"
+                    value={editTitle}
+                    onChange={e => setEditTitle(e.target.value)}
+                    style={{width:'100%',padding:'0.5rem',marginBottom:'0.5rem',border:'1px solid #ccc',borderRadius:'4px'}}
+                  />
+                  <textarea
+                    value={editContent}
+                    onChange={e => setEditContent(e.target.value)}
+                    style={{width:'100%',padding:'0.5rem',marginBottom:'0.5rem',border:'1px solid #ccc',borderRadius:'4px',minHeight:80}}
+                  />
+                  {editError && <div style={{color:'red',marginBottom:'0.5rem'}}>{editError}</div>}
+                  {editSuccess && <div style={{color:'green',marginBottom:'0.5rem'}}>{editSuccess}</div>}
+                  <button type="submit" style={{background:'#039be5',color:'#fff',border:'none',borderRadius:'4px',padding:'0.5rem 1rem',marginRight:'0.5rem'}}>Save</button>
+                  <button type="button" onClick={() => setEditId(null)} style={{background:'#eee',color:'#333',border:'none',borderRadius:'4px',padding:'0.5rem 1rem'}}>Cancel</button>
+                </form>
+              ) : (
+                <>
+                  <h4 style={{margin:'0 0 0.5rem 0'}}>{item.title}</h4>
+                  <div style={{color:'#444',marginBottom:'0.5rem'}}>{item.content}</div>
+                  <div style={{fontSize:'0.9rem',color:'#888'}}>By {item.author} on {item.createdAt && item.createdAt.toDate && new Date(item.createdAt.seconds*1000).toLocaleString()}</div>
+                  <div style={{fontSize:'0.9rem',color:item.approved?'green':'orange'}}>
+                    {item.approved ? 'Approved' : 'Pending approval'}
+                  </div>
+                  {isAdmin && !item.approved && (
+                    <button onClick={() => handleApprove(item.id)} style={{marginTop:'0.5rem',background:'#039be5',color:'#fff',border:'none',borderRadius:'4px',padding:'0.3rem 1rem'}}>Approve</button>
+                  )}
+                  {isAdmin && (
+                    <button onClick={() => startEdit(item)} style={{marginTop:'0.5rem',marginLeft:'0.5rem',background:'#039be5',color:'#fff',border:'none',borderRadius:'4px',padding:'0.3rem 1rem'}}>Edit</button>
+                  )}
+                </>
               )}
             </div>
           ))}
